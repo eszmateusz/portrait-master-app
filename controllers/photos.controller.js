@@ -1,4 +1,7 @@
 const Photo = require('../models/photo.model');
+const Voter = require('../models/voter.model');
+
+const requestIp = require('request-ip');
 
 /****** SUBMIT PHOTO ********/
 
@@ -17,10 +20,8 @@ exports.add = async (req, res) => {
 
     if (
       (emailMatched.length < email.length)
-      &&
-      (titleMatched.length < title.length)
-      &&
-      (authorMatched.length < author.length)
+      && (titleMatched.length < title.length)
+      && (authorMatched.length < author.length)
     ) {
       throw new Error('Invalid characters, try again.')
     };
@@ -70,13 +71,37 @@ exports.vote = async (req, res) => {
 
   try {
     const photoToUpdate = await Photo.findOne({ _id: req.params.id });
-    if (!photoToUpdate) res.status(404).json({ message: 'Not found' });
-    else {
+
+    if (!photoToUpdate) {
+      res.status(404).json({ message: 'Not found...' });
+    }
+
+    const updatedPhoto = () => {
       photoToUpdate.votes++;
       photoToUpdate.save();
-      res.send({ message: 'OK' });
+      res.send({ message: 'Ok!' });
     }
-  } catch (err) {
+
+    const clientIp = requestIp.getClientIp(req);
+    const findUser = await Voter.findOne({ user: clientIp });
+
+    if (findUser) {
+      const votesArray = findUser.votes.filter(el => el == req.params.id);
+
+      if (votesArray < 1) {
+        findUser.votes.push(req.params.id);
+        await Voter.updateOne( { user: clientIp }, { $set: { votes: findedUser.votes } } );
+        updatedPhoto();
+      } else {
+        res.status(500).json('You cannot vote twice or more for the same photo.');
+      }
+    } else {
+      const newVoter = await Voter({ user: clientIp, votes: req.params.id });
+      await newVoter.save();
+      updatedPhoto();
+    }
+  } 
+  catch (err) {
     res.status(500).json(err);
   }
 
